@@ -1,0 +1,50 @@
+pipeline {
+	agent any
+	tools {
+		maven 'M3.6'
+	}
+	stages {
+		stage('Sonar Scanner') {
+			steps {
+				withSonarQubeEnv('Sonar') {
+    					sh "mvn sonar:sonar"
+				}
+			}
+		}
+		stage('Build') {
+			steps {
+				sh "mvn clean package"
+			}
+		}
+		stage('Parallel Stages') {
+			parallel {
+				stage('Archival') {
+					steps {
+						archiveArtifacts artifacts: 'target/*.?ar', followSymlinks: false
+					}
+				}
+				stage('Unit Tests') {
+					steps { 
+						junit 'target/surefire-reports/*.xml'
+					}
+				}
+			}
+		}
+	}
+	post {
+		success {
+			notify('Success') 
+		}
+		failure {
+			notify('Failed') 
+		}
+	}
+}
+
+def notify(status) {
+	emailext (
+		to: 'devops.kphb@gmail.com',
+		subject: "${status} - ${env.JOB_NAME} [${env.BUILD_NUMBER}]",
+		body: "$status ${env.BUILD_NUMBER} - Jenkins job ${env.BUILD_URL}"
+	)
+}

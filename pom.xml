@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.springframework.samples</groupId>
     <artifactId>spring-petclinic</artifactId>
-    <version>4.2.6-SNAPSHOT</version>
+    <version>4.2.6</version>
 
     <name>petclinic</name>
     <packaging>war</packaging>
@@ -57,6 +57,21 @@
     </dependencyManagement>
 
     <dependencies>
+	<dependency>
+  	    <groupId>javax.xml.bind</groupId>
+  	    <artifactId>jaxb-api</artifactId>
+  	    <version>2.3.0</version>
+	</dependency>
+<dependency>
+  <groupId>com.sun.xml.bind</groupId>
+  <artifactId>jaxb-core</artifactId>
+  <version>2.3.0</version>
+</dependency>
+<dependency>
+  <groupId>com.sun.xml.bind</groupId>
+  <artifactId>jaxb-impl</artifactId>
+  <version>2.3.0</version>
+</dependency>
         <dependency>
             <groupId>org.jadira.usertype</groupId>
             <artifactId>usertype.core</artifactId>

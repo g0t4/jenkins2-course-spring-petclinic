@@ -1,0 +1,101 @@
+pipeline {
+	agent { label 'master' }
+
+	tools {
+		maven 'M3.6.3'
+	}
+
+	stages {
+		stage('Checkout') {
+			steps {
+				//git url: 'https://github.com/Saitejashwini/ansible-tomcat.git'
+				checkout([$class: 'GitSCM', branches: [[name: '*/master']], 
+				doGenerateSubmoduleConfigurations: false, extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'ansible-terraform']], 
+				submoduleCfg: [], 
+				userRemoteConfigs: [[credentialsId: 'myId', url: 'https://github.com/akmaharshi/ansible-terraform.git']]])
+			}
+		}
+		stage('Build and Provisioning') {
+			parallel {
+				stage('Maven Build') {
+					steps {
+						sh label: '', script: 'mvn clean package'
+					}
+				}
+				stage('Run Terraform') {
+					steps {
+						sh '''
+						 	cd ansible-terraform/terraform
+							export PATH=$PATH:/usr/local/bin
+							terraform init
+							terraform apply --auto-approve
+						'''
+					}
+				}
+			}
+		}
+		stage('Post Build Actions') {
+			parallel {
+				stage('Archive Artifacts') {
+					steps {
+						archiveArtifacts artifacts: 'target/*.?ar', followSymlinks: false
+					}
+				}
+
+				stage('Test Results') {
+					steps {
+						junit 'target/surefire-reports/*.xml'
+					}
+				}
+				
+				stage('Nexus Uploader') {
+					steps {
+						// nexusArtifactUploader artifacts: [[artifactId: 'spring-petclinic', classifier: '', file: 'target/petclinic.war', type: 'war']], credentialsId: 'nexuscred', groupId: 'org.springframework.samples', nexusUrl: '3.16.24.163', nexusVersion: 'nexus2', protocol: 'http', repository: 'maven-releases', version: "4.2.${BUILD_NUMBER}"
+
+						nexusArtifactUploader (
+    						nexusVersion: 'nexus2',
+    						protocol: 'http',
+    						nexusUrl: '3.16.24.163:8081/nexus',
+    						groupId: 'org.springframework.samples',
+    						version: "4.2.${BUILD_NUMBER}",
+    						repository: 'releases',
+    						credentialsId: 'nexuscred',
+    						artifacts: [
+        						[artifactId: 'spring-petclinic',
+         						classifier: '',
+         						file: 'target/petclinic.war',
+         						type: 'war']
+    						]
+ 						)
+					}
+				}
+			}
+		}
+		stage('Install Tomcat and Deploy war') {
+			steps {
+				sh 'cd ansible-terraform;ansible-playbook -i aws_ec2.yml site.yml -e "ansible_user=ec2-user passed_in_hosts=tag_my_app_asg ARTIFACT_VERSION=81f8102d-c371-4991-bf51-669d3e2d903b"'
+			}
+		}
+	}
+	post {
+		success {
+			notify('Success')
+		}
+		failure {
+			notify('Failed')
+		}
+		aborted {
+			notify('Aborted')
+		}
+	}
+
+}
+
+def notify(status){
+    emailext (
+      to: "anilmaharshi.p@gmail.com",
+      subject: "${status}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+      body: """<p>${status}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
+        <p>Check console output at <a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a></p>""",
+    )
+}
